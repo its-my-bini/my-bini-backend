@@ -1,6 +1,7 @@
 import { prisma } from "../db/prisma";
 import { createPublicClient, http, formatEther, parseEther } from "viem";
 import { monadTestnet } from "viem/chains";
+import { SocketService } from "./socket.service";
 
 // ─── Get Balance ─────────────────────────────────────
 
@@ -27,7 +28,14 @@ export async function reserveTokens(
         token_balance: { decrement: amount },
       },
     });
-    return result.count > 0;
+
+    if (result.count > 0) {
+      // Emit update
+      const newBalance = await getBalance(userId);
+      SocketService.getInstance().emitBalanceUpdate(userId, newBalance);
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }
@@ -54,12 +62,13 @@ export async function rollbackTokens(
   userId: string,
   amount: number,
 ): Promise<void> {
-  await prisma.balance.update({
+  const updated = await prisma.balance.update({
     where: { user_id: userId },
     data: {
       token_balance: { increment: amount },
     },
   });
+  SocketService.getInstance().emitBalanceUpdate(userId, updated.token_balance);
 }
 
 // ─── Viem Client ─────────────────────────────────────
@@ -113,7 +122,7 @@ export async function processDeposit(
   const tokensToCredit = amount * EXCHANGE_RATE;
 
   // 5. Update Database
-  await prisma.$transaction([
+  const [updatedBalance] = await prisma.$transaction([
     prisma.balance.upsert({
       where: { user_id: userId },
       create: { user_id: userId, token_balance: tokensToCredit },
@@ -128,6 +137,12 @@ export async function processDeposit(
       },
     }),
   ]);
+
+  // Emit update
+  SocketService.getInstance().emitBalanceUpdate(
+    userId,
+    updatedBalance.token_balance,
+  );
 }
 
 // ─── Process Withdraw ────────────────────────────────
@@ -162,9 +177,13 @@ export async function getChatCost(): Promise<number> {
 // ─── Ensure Balance Exists ───────────────────────────
 
 export async function ensureBalance(userId: string): Promise<void> {
-  await prisma.balance.upsert({
+  const updated = await prisma.balance.upsert({
     where: { user_id: userId },
     create: { user_id: userId, token_balance: 50 },
     update: {},
   });
+  // Optional: Emit here if it's a new user or just ensuring?
+  // If it's new user, they might not be connected to socket yet.
+  // But good to have.
+  SocketService.getInstance().emitBalanceUpdate(userId, updated.token_balance);
 }

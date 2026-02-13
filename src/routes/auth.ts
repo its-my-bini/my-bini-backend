@@ -121,13 +121,40 @@ export const authRoutes: Plugin<void> = {
           prisma.balance.findUnique({ where: { user_id: user.id } }),
           prisma.relationship.findMany({
             where: { user_id: user.id },
-            include: { persona: { select: { name: true, type: true } } },
+            include: {
+              persona: { select: { id: true, name: true, type: true } },
+            },
           }),
           prisma.userPersona.findMany({
             where: { user_id: user.id },
             include: { persona: true },
           }),
         ]);
+
+        // Fetch last message for each relationship
+        const relationshipsWithLastMessage = await Promise.all(
+          relationships.map(async (r) => {
+            const lastMsg = await prisma.message.findFirst({
+              where: {
+                user_id: user.id,
+                persona_id: r.persona_id,
+              },
+              orderBy: { created_at: "desc" },
+              select: { content: true, created_at: true },
+            });
+
+            return {
+              persona_id: r.persona.id,
+              persona_name: r.persona.name,
+              persona_type: r.persona.type,
+              intimacy_level: r.intimacy_level,
+              status: r.status,
+              last_interaction: r.last_interaction,
+              last_message: lastMsg?.content || "No messages yet",
+              last_message_at: lastMsg?.created_at || r.last_interaction,
+            };
+          }),
+        );
 
         return h
           .response({
@@ -137,19 +164,13 @@ export const authRoutes: Plugin<void> = {
               wallet_address: user.wallet_address,
               created_at: user.created_at,
               token_balance: balance?.token_balance ?? 0,
-              personas: userPersonas.map((up: any) => ({
+              personas: userPersonas.map((up) => ({
                 id: up.persona.id,
                 name: up.persona.name,
                 type: up.persona.type,
                 selected_at: up.created_at,
               })),
-              relationships: relationships.map((r: any) => ({
-                persona_name: r.persona.name,
-                persona_type: r.persona.type,
-                intimacy_level: r.intimacy_level,
-                status: r.status,
-                last_interaction: r.last_interaction,
-              })),
+              relationships: relationshipsWithLastMessage,
             },
           })
           .code(200);

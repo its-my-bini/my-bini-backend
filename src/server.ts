@@ -9,17 +9,18 @@ import {
   startSummaryWorker,
   closeSummaryWorker,
 } from "./services/summary.worker";
+import { SocketService } from "./services/socket.service";
 
 // ─── Server Setup ────────────────────────────────────
 
-const PORT = parseInt(process.env.SERVER_PORT || "3000", 10);
+const PORT = process.env.PORT || 8000;
 
 const server = Hapi.server({
   port: PORT,
   host: "0.0.0.0",
   routes: {
     cors: {
-      origin: ["*"],
+      origin: ["*"], // TODO: Restrict this to your frontend domain in production
       headers: ["Accept", "Content-Type", "x-wallet-address"],
       additionalHeaders: ["x-wallet-address"],
     },
@@ -63,6 +64,14 @@ async function start() {
           info: {
             title: "AI Girlfriend Bot API Documentation",
             version: "1.0.0",
+            description: `
+**Base URL**: /
+
+**Real-Time Features (WebSocket)**:
+- Connect to this server using Socket.io
+- Events: \`balance:update\`
+- See **frontend_guide.md** for full documentation.
+            `,
           },
         },
       },
@@ -76,6 +85,9 @@ async function start() {
 
     // Start serving
     await server.start();
+
+    // Initialize Socket.io
+    SocketService.getInstance().init(server.listener);
 
     console.log("╔══════════════════════════════════════════╗");
     console.log("║   💕 AI Girlfriend Bot Backend           ║");
