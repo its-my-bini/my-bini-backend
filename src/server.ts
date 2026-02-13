@@ -11,6 +11,39 @@ import {
 } from "./services/summary.worker";
 import { SocketService } from "./services/socket.service";
 
+import os from "os";
+
+// ─── Native Fetch for Ngrok ──────────────────────────
+// Bun has built-in fetch, so we don't need node-fetch
+
+// ─── Helper: Get LAN IP ──────────────────────────────
+function getLocalExternalIp(): string {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]!) {
+      // Skip internal (non-127.0.0.1) and non-ipv4
+      if ("IPv4" !== iface.family || iface.internal) {
+        continue;
+      }
+      return iface.address;
+    }
+  }
+  return "localhost";
+}
+
+// ─── Helper: Get Ngrok URL ───────────────────────────
+async function getNgrokUrl(): Promise<string | null> {
+  try {
+    const response = await fetch("http://127.0.0.1:4040/api/tunnels");
+    if (!response.ok) return null;
+    const data = (await response.json()) as any;
+    const tunnel = data.tunnels?.find((t: any) => t.proto === "https");
+    return tunnel?.public_url || null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Server Setup ────────────────────────────────────
 
 const PORT = process.env.PORT || 8000;
@@ -89,11 +122,20 @@ async function start() {
     // Initialize Socket.io
     SocketService.getInstance().init(server.listener);
 
-    console.log("╔══════════════════════════════════════════╗");
-    console.log("║   💕 AI Girlfriend Bot Backend           ║");
-    console.log(`║   🚀 Server running on port ${PORT}         ║`);
-    console.log("║   📡 Ready for connections               ║");
-    console.log("╚══════════════════════════════════════════╝");
+    const localUrl = `http://localhost:${PORT}`;
+    const lanIp = getLocalExternalIp();
+    const networkUrl = `http://${lanIp}:${PORT}`;
+    const ngrokUrl = await getNgrokUrl();
+
+    console.log("╔══════════════════════════════════════════════════════════╗");
+    console.log("║                   💕 AI Girlfriend Bot                   ║");
+    console.log("╠══════════════════════════════════════════════════════════╣");
+    console.log(`║   🚀 Local:     ${localUrl.padEnd(33)}║`);
+    console.log(`║   📡 Network:   ${networkUrl.padEnd(33)}║`);
+    if (ngrokUrl) {
+      console.log(`║   🌍 Public:    ${ngrokUrl.padEnd(33)}║`);
+    }
+    console.log("╚══════════════════════════════════════════════════════════╝");
     console.log("");
     console.log("Available routes:");
     console.log("  POST /auth/wallet-login");

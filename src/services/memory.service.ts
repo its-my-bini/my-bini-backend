@@ -1,5 +1,5 @@
 import { prisma } from "../db/prisma";
-import type { MemoryType } from "@prisma/client";
+import { type MemoryType, Prisma } from "@prisma/client";
 
 // ─── Types ───────────────────────────────────────────
 
@@ -8,7 +8,14 @@ export interface ChatContext {
     name: string;
     type: string;
     system_prompt: string;
+    age: number;
+    birthday: string;
+    hobbies: string[];
+    likes: string[];
+    dislikes: string[];
+    background: string;
   };
+  userName: string | null;
   relationship: {
     intimacy_level: number;
     status: string;
@@ -29,25 +36,29 @@ export async function getContext(
   personaId: string,
 ): Promise<ChatContext> {
   // Fetch all in parallel
-  const [persona, relationship, memories, recentMessages] = await Promise.all([
-    prisma.persona.findUnique({ where: { id: personaId } }),
-    prisma.relationship.findUnique({
-      where: { user_id_persona_id: { user_id: userId, persona_id: personaId } },
-    }),
-    prisma.memory.findMany({
-      where: { user_id: userId, persona_id: personaId },
-    }),
-    prisma.message.findMany({
-      where: {
-        user_id: userId,
-        persona_id: personaId,
-        deleted_at: null,
-      },
-      orderBy: { created_at: "desc" },
-      take: 15,
-      select: { role: true, content: true },
-    }),
-  ]);
+  const [persona, user, relationship, memories, recentMessages] =
+    await Promise.all([
+      prisma.persona.findUnique({ where: { id: personaId } }),
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.relationship.findUnique({
+        where: {
+          user_id_persona_id: { user_id: userId, persona_id: personaId },
+        },
+      }),
+      prisma.memory.findMany({
+        where: { user_id: userId, persona_id: personaId },
+      }),
+      prisma.message.findMany({
+        where: {
+          user_id: userId,
+          persona_id: personaId,
+          deleted_at: null,
+        },
+        orderBy: { created_at: "desc" },
+        take: 15,
+        select: { role: true, content: true },
+      }),
+    ]);
 
   if (!persona) {
     throw new Error("Persona not found");
@@ -64,7 +75,14 @@ export async function getContext(
       name: persona.name,
       type: persona.type,
       system_prompt: persona.system_prompt,
+      age: persona.age,
+      birthday: persona.birthday,
+      hobbies: persona.hobbies,
+      likes: persona.likes,
+      dislikes: persona.dislikes,
+      background: persona.background,
     },
+    userName: user?.name ?? null,
     relationship: {
       intimacy_level: relationship?.intimacy_level ?? 0,
       status: relationship?.status ?? "stranger",
@@ -86,7 +104,7 @@ export async function updateMemory(
   userId: string,
   personaId: string,
   type: MemoryType,
-  data: Record<string, unknown>,
+  data: Prisma.InputJsonValue,
 ): Promise<void> {
   await prisma.memory.upsert({
     where: {
@@ -161,6 +179,11 @@ export async function extractAndUpdateProfile(
 
   // Only update if we found something
   if (Object.keys(profile).length > 0) {
-    await updateMemory(userId, personaId, "profile", profile);
+    await updateMemory(
+      userId,
+      personaId,
+      "profile",
+      profile as Prisma.InputJsonValue,
+    );
   }
 }

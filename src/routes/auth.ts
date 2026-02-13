@@ -40,17 +40,32 @@ export const authRoutes: Plugin<void> = {
             wallet_address: Joi.string().required(),
             signature: Joi.string().optional(),
             message: Joi.string().optional(),
+            name: Joi.string().optional(),
           }),
         },
         tags: ["api", "auth"],
         description: "Login or register with wallet address",
+        response: {
+          schema: Joi.object({
+            success: Joi.boolean(),
+            user: Joi.object({
+              id: Joi.string(),
+              wallet_address: Joi.string(),
+              name: Joi.string().allow(null),
+              created_at: Joi.date(),
+              token_balance: Joi.number(),
+            }),
+          }).label("WalletLoginResponse"),
+        },
       },
       handler: async (request: Request, h: ResponseToolkit) => {
-        const { wallet_address, signature, message } = request.payload as {
-          wallet_address: string;
-          signature?: string;
-          message?: string;
-        };
+        const { wallet_address, signature, message, name } =
+          request.payload as {
+            wallet_address: string;
+            signature?: string;
+            message?: string;
+            name?: string;
+          };
 
         const normalizedAddress = wallet_address.toLowerCase();
 
@@ -80,8 +95,8 @@ export const authRoutes: Plugin<void> = {
         // Upsert user
         const user = await prisma.user.upsert({
           where: { wallet_address: normalizedAddress },
-          create: { wallet_address: normalizedAddress },
-          update: {},
+          create: { wallet_address: normalizedAddress, name },
+          update: name ? { name } : {},
         });
 
         // Ensure balance exists
@@ -98,6 +113,7 @@ export const authRoutes: Plugin<void> = {
             user: {
               id: user.id,
               wallet_address: user.wallet_address,
+              name: user.name,
               created_at: user.created_at,
               token_balance: balance?.token_balance ?? 0,
             },
@@ -113,6 +129,44 @@ export const authRoutes: Plugin<void> = {
       options: {
         tags: ["api", "auth"],
         description: "Get user profile with balances and relationships",
+        response: {
+          schema: Joi.object({
+            success: Joi.boolean(),
+            profile: Joi.object({
+              id: Joi.string(),
+              wallet_address: Joi.string(),
+              name: Joi.string().allow(null),
+              created_at: Joi.date(),
+              token_balance: Joi.number(),
+              personas: Joi.array().items(
+                Joi.object({
+                  id: Joi.string(),
+                  name: Joi.string(),
+                  type: Joi.string(),
+                  selected_at: Joi.date(),
+                }),
+              ),
+              relationships: Joi.array().items(
+                Joi.object({
+                  persona_id: Joi.string(),
+                  persona_name: Joi.string(),
+                  persona_type: Joi.string(),
+                  persona_age: Joi.number(),
+                  persona_birthday: Joi.string(),
+                  persona_hobbies: Joi.array().items(Joi.string()),
+                  persona_likes: Joi.array().items(Joi.string()),
+                  persona_dislikes: Joi.array().items(Joi.string()),
+                  persona_background: Joi.string(),
+                  intimacy_level: Joi.number(),
+                  status: Joi.string(),
+                  last_interaction: Joi.date(),
+                  last_message: Joi.string(),
+                  last_message_at: Joi.date(),
+                }),
+              ),
+            }),
+          }).label("UserProfileResponse"),
+        },
       },
       handler: async (request: Request, h: ResponseToolkit) => {
         const user = await getAuthUser(request);
@@ -122,7 +176,19 @@ export const authRoutes: Plugin<void> = {
           prisma.relationship.findMany({
             where: { user_id: user.id },
             include: {
-              persona: { select: { id: true, name: true, type: true } },
+              persona: {
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                  age: true,
+                  birthday: true,
+                  hobbies: true,
+                  likes: true,
+                  dislikes: true,
+                  background: true,
+                },
+              },
             },
           }),
           prisma.userPersona.findMany({
@@ -147,6 +213,12 @@ export const authRoutes: Plugin<void> = {
               persona_id: r.persona.id,
               persona_name: r.persona.name,
               persona_type: r.persona.type,
+              persona_age: r.persona.age,
+              persona_birthday: r.persona.birthday,
+              persona_hobbies: r.persona.hobbies,
+              persona_likes: r.persona.likes,
+              persona_dislikes: r.persona.dislikes,
+              persona_background: r.persona.background,
               intimacy_level: r.intimacy_level,
               status: r.status,
               last_interaction: r.last_interaction,
@@ -162,6 +234,7 @@ export const authRoutes: Plugin<void> = {
             profile: {
               id: user.id,
               wallet_address: user.wallet_address,
+              name: user.name,
               created_at: user.created_at,
               token_balance: balance?.token_balance ?? 0,
               personas: userPersonas.map((up) => ({

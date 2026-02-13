@@ -17,6 +17,25 @@ export const personaRoutes: Plugin<void> = {
       options: {
         tags: ["api", "persona"],
         description: "List all available personas",
+        response: {
+          schema: Joi.object({
+            success: Joi.boolean(),
+            personas: Joi.array().items(
+              Joi.object({
+                id: Joi.string(),
+                name: Joi.string(),
+                type: Joi.string(),
+                description: Joi.string(),
+                age: Joi.number(),
+                birthday: Joi.string(),
+                hobbies: Joi.array().items(Joi.string()),
+                likes: Joi.array().items(Joi.string()),
+                dislikes: Joi.array().items(Joi.string()),
+                background: Joi.string(),
+              }),
+            ),
+          }).label("PersonasListResponse"),
+        },
       },
       handler: async (_request: Request, h: ResponseToolkit) => {
         const personas = await prisma.persona.findMany({
@@ -25,6 +44,12 @@ export const personaRoutes: Plugin<void> = {
             name: true,
             type: true,
             description: true,
+            age: true,
+            birthday: true,
+            hobbies: true,
+            likes: true,
+            dislikes: true,
+            background: true,
           },
         });
 
@@ -52,6 +77,24 @@ export const personaRoutes: Plugin<void> = {
         },
         tags: ["api", "persona"],
         description: "Select a persona to chat with",
+        response: {
+          schema: Joi.object({
+            success: Joi.boolean(),
+            message: Joi.string(),
+            persona: Joi.object({
+              id: Joi.string(),
+              name: Joi.string(),
+              type: Joi.string(),
+              description: Joi.string(),
+              age: Joi.number(),
+              birthday: Joi.string(),
+              hobbies: Joi.array().items(Joi.string()),
+              likes: Joi.array().items(Joi.string()),
+              dislikes: Joi.array().items(Joi.string()),
+              background: Joi.string(),
+            }),
+          }).label("SelectPersonaResponse"),
+        },
       },
       handler: async (request: Request, h: ResponseToolkit) => {
         const user = await getAuthUser(request);
@@ -106,6 +149,12 @@ export const personaRoutes: Plugin<void> = {
               name: persona.name,
               type: persona.type,
               description: persona.description,
+              age: persona.age,
+              birthday: persona.birthday,
+              hobbies: persona.hobbies,
+              likes: persona.likes,
+              dislikes: persona.dislikes,
+              background: persona.background,
             },
           })
           .code(200);

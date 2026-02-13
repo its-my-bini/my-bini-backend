@@ -6,9 +6,17 @@ let redis: Redis | null = null;
 
 export function getRedis(): Redis {
   if (!redis) {
+    console.log(
+      "[Redis] Connecting to:",
+      REDIS_URL.replace(/:[^:@]+@/, ":***@"),
+    );
     redis = new Redis(REDIS_URL, {
       maxRetriesPerRequest: null, // Required by BullMQ
       enableReadyCheck: false,
+      retryStrategy(times) {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
     });
 
     redis.on("error", (err) => {

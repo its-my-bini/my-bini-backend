@@ -1,4 +1,4 @@
-import type { ChatContext } from "./memory.service";
+import type { ChatContext } from "../services/memory.service";
 
 // ─── Types ───────────────────────────────────────────
 
@@ -20,8 +20,34 @@ function buildSystemPrompt(context: ChatContext): string {
 
   let systemPrompt = persona.system_prompt;
 
+  // ─── Build Dynamic Profile ───
+  const profileSection = [
+    `\nPROFILE:`,
+    `- Age: ${persona.age}`,
+    `- Birthday: ${persona.birthday}`,
+    `- Hobbies: ${persona.hobbies.join(", ")}`,
+    `- Likes: ${persona.likes.join(", ")}`,
+    `- Dislikes: ${persona.dislikes.join(", ")}`,
+    `- Background: ${persona.background}`,
+    `\n`,
+  ].join("\n");
+
+  // Insert profile after the first line (introduction)
+  const firstLineEnd = systemPrompt.indexOf("\n");
+  if (firstLineEnd !== -1) {
+    systemPrompt =
+      systemPrompt.slice(0, firstLineEnd) +
+      `\n${profileSection}` +
+      systemPrompt.slice(firstLineEnd);
+  } else {
+    systemPrompt += `\n${profileSection}`;
+  }
+
   // Add relationship context
   systemPrompt += `\n\n--- RELATIONSHIP STATUS ---`;
+  if (context.userName) {
+    systemPrompt += `\nUser's Name: ${context.userName}`;
+  }
   systemPrompt += `\nYour relationship with the user is: ${relationship.status} (intimacy: ${relationship.intimacy_level}/100)`;
 
   // Adapt behavior based on intimacy level
