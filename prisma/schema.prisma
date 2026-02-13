@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Core Tables ───────────────────────────────────────────
+
+model User {
+  id             String   @id @default(uuid())
+  wallet_address String   @unique
+  created_at     DateTime @default(now())
+
+  user_personas UserPersona[]
+  relationships Relationship[]
+  messages      Message[]
+  memories      Memory[]
+  balance       Balance?
+  transactions  Transaction[]
+  usage_logs    UsageLog[]
+
+  @@map("users")
+}
+
+model Persona {
+  id            String @id @default(uuid())
+  name          String
+  type          String // sweet, tsundere, playful
+  system_prompt String @db.Text
+  description   String @db.Text
+
+  user_personas UserPersona[]
+  relationships Relationship[]
+  messages      Message[]
+  memories      Memory[]
+
+  @@map("personas")
+}
+
+model UserPersona {
+  id         String   @id @default(uuid())
+  user_id    String
+  persona_id String
+  created_at DateTime @default(now())
+
+  user    User    @relation(fields: [user_id], references: [id])
+  persona Persona @relation(fields: [persona_id], references: [id])
+
+  @@unique([user_id, persona_id])
+  @@map("user_personas")
+}
+
+model Relationship {
+  id               String   @id @default(uuid())
+  user_id          String
+  persona_id       String
+  intimacy_level   Int      @default(0)
+  last_interaction DateTime @default(now())
+  status           String   @default("stranger") // stranger, friend, close, lover
+
+  user    User    @relation(fields: [user_id], references: [id])
+  persona Persona @relation(fields: [persona_id], references: [id])
+
+  @@unique([user_id, persona_id])
+  @@map("relationships")
+}
+
+// ─── Messages & Memory ─────────────────────────────────────
+
+model Message {
+  id         String    @id @default(uuid())
+  user_id    String
+  persona_id String
+  role       String // user, ai
+  content    String    @db.Text
+  created_at DateTime  @default(now())
+  deleted_at DateTime?
+
+  user    User    @relation(fields: [user_id], references: [id])
+  persona Persona @relation(fields: [persona_id], references: [id])
+
+  @@index([user_id, persona_id, created_at])
+  @@map("messages")
+}
+
+enum MemoryType {
+  profile
+  relationship
+  summary
+}
+
+model Memory {
+  id           String     @id @default(uuid())
+  user_id      String
+  persona_id   String
+  type         MemoryType
+  content_json Json
+  updated_at   DateTime   @updatedAt
+
+  user    User    @relation(fields: [user_id], references: [id])
+  persona Persona @relation(fields: [persona_id], references: [id])
+
+  @@unique([user_id, persona_id, type])
+  @@map("memories")
+}
+
+// ─── Token System ──────────────────────────────────────────
+
+model Balance {
+  id            String   @id @default(uuid())
+  user_id       String   @unique
+  token_balance Float    @default(0)
+  updated_at    DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@map("balances")
+}
+
+model Transaction {
+  id         String   @id @default(uuid())
+  user_id    String
+  type       String // chat, purchase, reward, withdraw
+  amount     Float
+  created_at DateTime @default(now())
+  tx_hash    String?
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, created_at])
+  @@map("transactions")
+}
+
+model UsageLog {
+  id            String   @id @default(uuid())
+  user_id       String
+  tokens_used   Float    @default(0)
+  messages_sent Int      @default(0)
+  date          DateTime @db.Date
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@unique([user_id, date])
+  @@map("usage_logs")
+}
+
+model AppConfig {
+  key   String @id
+  value String
+
+  @@map("app_config")
+}

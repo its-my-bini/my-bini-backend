@@ -1,0 +1,42 @@
+{
+  "name": "ai-girlfriend-bot",
+  "module": "src/server.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --watch src/server.ts",
+    "start": "bun run src/server.ts",
+    "build": "bun build src/server.ts --outdir ./dist --target bun",
+    "db:migrate": "bunx prisma migrate dev",
+    "db:generate": "bunx prisma generate",
+    "db:seed": "bun run prisma/seed.ts",
+    "db:studio": "bunx prisma studio"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/hapi__boom": "^9.0.1",
+    "@types/hapi__hapi": "^21.0.0",
+    "prisma": "^6.0.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@hapi/hapi": "^21.4.4",
+    "@hapi/inert": "^7.1.0",
+    "@hapi/vision": "^7.0.3",
+    "@prisma/client": "^6.0.0",
+    "@types/hapi__inert": "^7.1.0",
+    "@types/hapi__vision": "^7.0.2",
+    "bullmq": "^5.69.1",
+    "dotenv": "^17.3.1",
+    "hapi-swagger": "^17.3.2",
+    "ioredis": "^5.9.3",
+    "joi": "^18.0.2",
+    "viem": "^2.45.3"
+  },
+  "prisma": {
+    "seed": "bun run prisma/seed.ts"
+  }
+}

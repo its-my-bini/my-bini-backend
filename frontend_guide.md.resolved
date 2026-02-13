@@ -1,0 +1,397 @@
+# AI Girlfriend Frontend Documentation
+
+This document provides a complete reference for integrating the AI Girlfriend Backend.
+
+## Base URL
+`http://localhost:3000` (Development)
+
+## Common Headers
+All authenticated endpoints require the user's wallet address.
+```http
+x-wallet-address: 0x123...
+Content-Type: application/json
+```
+
+---
+
+## 1. Types & Interfaces
+
+Copy these interfaces to your frontend project (e.g., `types.ts`).
+
+```typescript
+// User & Auth
+export interface User {
+  id: string;
+  wallet_address: string;
+  token_balance: number;
+  created_at: string;
+}
+
+export interface UserProfile extends User {
+  personas: Array<{
+    id: string;
+    name: string;
+    type: "sweet" | "tsundere" | "playful";
+    selected_at: string;
+  }>;
+  relationships: Array<{
+    persona_name: string;
+    persona_type: string;
+    intimacy_level: number;
+    status: string;
+    last_interaction: string;
+  }>;
+}
+
+// Global Responses
+export interface ApiResponse<T> {
+  success: boolean;
+  message?: string;
+  data?: T;
+  // Some endpoints return data directly or nested differently, see below
+}
+
+// Personas
+export interface Persona {
+  id: string;
+  name: string;
+  type: string;
+  description: string;
+}
+
+// Chat
+export interface ChatMessage {
+  id: string;
+  role: "user" | "ai";
+  content: string;
+  created_at: string;
+}
+
+export interface ChatResponse {
+  user_message: ChatMessage;
+  ai_message: ChatMessage;
+  relationship: {
+    intimacy_level: number;
+    status: string;
+  };
+  rate_limit: {
+    remaining: number;
+  };
+}
+
+// Streaming Events
+export type StreamEvent = 
+  | { type: "status"; status: "sent" | "read" | "typing"; timestamp: string }
+  | { type: "message"; data: ChatResponse }
+  | { type: "error"; error: string };
+```
+
+---
+
+## 2. Authentication
+
+### Wallet Login
+**Endpoint**: `POST /auth/wallet-login`
+
+Use this endpoint to login or register.
+
+**Request:**
+```json
+{
+  "wallet_address": "0x123...", 
+  "signature": "optional_signature", 
+  "message": "optional_signed_message"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "user": {
+    "id": "uuid",
+    "wallet_address": "0x123...",
+    "token_balance": 50,
+    "created_at": "..."
+  }
+}
+```
+
+### Get User Profile
+**Endpoint**: `GET /user/profile`
+**Headers**: `x-wallet-address`
+
+**Response:**
+```json
+{
+  "success": true,
+  "profile": {
+    "id": "...",
+    "token_balance": 50,
+    "personas": [...],
+    "relationships": [...]
+  }
+}
+```
+
+---
+
+## 3. Onboarding (Personas)
+
+### List All Personas
+**Endpoint**: `GET /personas`
+
+**Response:**
+```json
+{
+  "success": true,
+  "personas": [
+    {
+      "id": "luna",
+      "name": "Luna",
+      "type": "sweet",
+      "description": "..."
+    },
+    ...
+  ]
+}
+```
+
+### Select Persona
+**Endpoint**: `POST /user/select-persona`
+**Headers**: `x-wallet-address`
+
+**Request:**
+```json
+{ "persona_id": "luna" }
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "You are now connected with Luna!",
+  "persona": { ... }
+}
+```
+
+---
+
+## 4. Chat System
+
+### Send Message (Streaming - Recommended)
+**Endpoint**: `POST /chat?stream=true`
+**Headers**: `x-wallet-address`
+
+**Request:**
+```json
+{
+  "persona_id": "luna",
+  "message": "Hello!"
+}
+```
+
+**Implementation Example:**
+```typescript
+async function sendChatMessage(personaId: string, message: string) {
+  const response = await fetch('http://localhost:3000/chat?stream=true', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-wallet-address': userWalletAddress,
+    },
+    body: JSON.stringify({ persona_id: personaId, message }),
+  });
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+
+  if (!reader) return;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value);
+    const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+    for (const line of lines) {
+      try {
+        const event = JSON.parse(line);
+        
+        if (event.type === 'status') {
+          console.log(`Status: ${event.status}`); // "sent" -> "read" -> "typing"
+          // UPDATE UI STATUS HERE
+        } else if (event.type === 'message') {
+          console.log('Final AI Response:', event.data.ai_message.content);
+          // DISPLAY MESSAGE HERE
+        } else if (event.type === 'error') {
+          console.error('Error:', event.error);
+        }
+      } catch (e) {
+        console.error("Parse error", e);
+      }
+    }
+  }
+}
+```
+
+### Send Message (Standard)
+**Endpoint**: `POST /chat`
+**Headers**: `x-wallet-address`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "user_message": { ... },
+    "ai_message": { ... },
+    "relationship": { "intimacy_level": 5, "status": "stranger" },
+    "rate_limit": { "remaining": 19 }
+  }
+}
+```
+
+### Chat History
+**Endpoint**: `GET /chat/history`
+**Headers**: `x-wallet-address`
+**Query Params**:
+- `persona_id`: required (e.g., "luna")
+- `page`: default 1
+- `limit`: default 50
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "messages": [
+       { "id": "...", "role": "user", "content": "Hi", "created_at": "..." },
+       { "id": "...", "role": "ai", "content": "Hello", "created_at": "..." }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 50,
+      "total": 100,
+      "total_pages": 2
+    }
+  }
+}
+```
+
+---
+
+## 5. Token System
+
+### Get Balance
+**Endpoint**: `GET /token/balance`
+**Headers**: `x-wallet-address`
+
+**Response:**
+```json
+{
+  "success": true,
+  "balance": 50
+}
+```
+
+### Claim Daily Reward
+**Endpoint**: `POST /token/daily-reward`
+**Headers**: `x-wallet-address`
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "🎁 Daily reward claimed! +5 tokens",
+  "reward": 5,
+  "streak_bonus": 0,
+  "balance": 55
+}
+```
+
+### Deposit (Monad Testnet)
+**Endpoint**: `POST /token/deposit`
+**Headers**: `x-wallet-address`
+
+Call this AFTER the user sends MON to the Treasury Contract on frontend.
+
+**Request:**
+```json
+{
+  "tx_hash": "0x...",
+  "amount": 10
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Deposit successful",
+  "balance": 65
+}
+```
+
+---
+
+## 6. Handling Low Balance & Deposit Flow
+
+When a user runs out of tokens (HTTP 402 Payment Required), you should trigger the Deposit Flow.
+
+### **Step 1: Send Transaction (Frontend)**
+Use `viem` or `wagmi` to send MON to the Treasury Address.
+
+```typescript
+import { parseEther } from 'viem';
+import { useSendTransaction, useWaitForTransaction } from 'wagmi';
+
+// 1. Definisikan Treasury Address (Dari Backend .env / Docs)
+const TREASURY_ADDRESS = "0xF9a7cE64DfddD0666E8Be5f29F182Df51bd2E76E";
+
+async function handleTopUp(amountMON: string) {
+  try {
+    // 2. Kirim Transaksi di Blockchain
+    const { hash } = await sendTransaction({
+      to: TREASURY_ADDRESS,
+      value: parseEther(amountMON), // ex: "1.0"
+    });
+
+    console.log("Tx Sent:", hash);
+    
+    // 3. Tunggu Konfirmasi
+    const receipt = await waitForTransaction({ hash });
+    
+    // 4. Lapor ke Backend untuk Update Database
+    await claimDeposit(hash, amountMON);
+    
+  } catch (err) {
+    console.error("Topup Failed:", err);
+  }
+}
+```
+
+### **Step 2: Claim Deposit (Backend Sync)**
+Call the backend to verify the transaction and credit tokens.
+
+```typescript
+async function claimDeposit(txHash: string, amount: string) {
+  const response = await fetch('http://localhost:3000/token/deposit', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-wallet-address': userWalletAddress,
+    },
+    body: JSON.stringify({
+      tx_hash: txHash,
+      amount: parseFloat(amount)
+    }),
+  });
+
+  const result = await response.json();
+  if (result.success) {
+    alert(`Success! New Balance: ${result.balance}`);
+  }
+}
+```
