@@ -13,6 +13,7 @@ model User {
   id             String   @id @default(uuid())
   wallet_address String   @unique
   name           String?
+  timezone       String   @default("Asia/Jakarta")
   created_at     DateTime @default(now())
 
   user_personas UserPersona[]

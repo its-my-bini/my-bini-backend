@@ -9,6 +9,8 @@ import {
   startSummaryWorker,
   closeSummaryWorker,
 } from "./services/summary.worker";
+import { CronService } from "./services/cron.service";
+import { EngagementWorker } from "./services/engagement.worker";
 import { SocketService } from "./services/socket.service";
 
 import os from "os";
@@ -122,6 +124,11 @@ async function start() {
     // Initialize Socket.io
     SocketService.getInstance().init(server.listener);
 
+    // Initialize Engagement Worker & Cron
+    new EngagementWorker();
+    await CronService.getInstance().init();
+
+    console.log("Server running on %s", server.info.uri);
     const localUrl = `http://localhost:${PORT}`;
     const lanIp = getLocalExternalIp();
     const networkUrl = `http://${lanIp}:${PORT}`;

@@ -41,6 +41,7 @@ export const authRoutes: Plugin<void> = {
             signature: Joi.string().optional(),
             message: Joi.string().optional(),
             name: Joi.string().optional(),
+            timezone: Joi.string().optional().default("Asia/Jakarta"),
           }),
         },
         tags: ["api", "auth"],
@@ -52,6 +53,7 @@ export const authRoutes: Plugin<void> = {
               id: Joi.string(),
               wallet_address: Joi.string(),
               name: Joi.string().allow(null),
+              timezone: Joi.string(),
               created_at: Joi.date(),
               token_balance: Joi.number(),
             }),
@@ -59,12 +61,13 @@ export const authRoutes: Plugin<void> = {
         },
       },
       handler: async (request: Request, h: ResponseToolkit) => {
-        const { wallet_address, signature, message, name } =
+        const { wallet_address, signature, message, name, timezone } =
           request.payload as {
             wallet_address: string;
             signature?: string;
             message?: string;
             name?: string;
+            timezone?: string;
           };
 
         const normalizedAddress = wallet_address.toLowerCase();
@@ -95,8 +98,11 @@ export const authRoutes: Plugin<void> = {
         // Upsert user
         const user = await prisma.user.upsert({
           where: { wallet_address: normalizedAddress },
-          create: { wallet_address: normalizedAddress, name },
-          update: name ? { name } : {},
+          create: { wallet_address: normalizedAddress, name, timezone },
+          update: {
+            ...(name ? { name } : {}),
+            ...(timezone ? { timezone } : {}),
+          },
         });
 
         // Ensure balance exists
@@ -114,6 +120,7 @@ export const authRoutes: Plugin<void> = {
               id: user.id,
               wallet_address: user.wallet_address,
               name: user.name,
+              timezone: user.timezone,
               created_at: user.created_at,
               token_balance: balance?.token_balance ?? 0,
             },

@@ -106,4 +106,15 @@ export class SocketService {
 
     console.log(`[Socket] Notification sent to ${room}: ${title}`);
   }
+
+  public emitMessage(userId: string, message: any): void {
+    if (!this.io) return;
+
+    const room = `user:${userId}`;
+    this.io.to(room).emit("message:receive", message);
+
+    console.log(
+      `[Socket] Message sent to ${room} (Persona: ${message.persona_id})`,
+    );
+  }
 }

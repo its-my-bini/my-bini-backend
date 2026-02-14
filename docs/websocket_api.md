@@ -74,7 +74,22 @@ System notifications for the user.
     }
     ```
 
-### 3. Typing Indicator (Broadcast)
+### 3. Incoming Message (Proactive/Chat)
+Received when the AI sends a message (e.g., proactive daily check-in).
+
+-   **Event**: `message:receive`
+-   **Payload**:
+    ```json
+    {
+      "id": "uuid-v4",
+      "content": "Good morning! ☀️",
+      "sender": "ai",
+      "persona_id": "luna",
+      "timestamp": "2023-10-27T08:00:00.000Z"
+    }
+    ```
+
+### 4. Typing Indicator (Broadcast)
 Received when another device (or potentially the AI agent in future updates) is typing.
 
 -   **Event**: `typing`
