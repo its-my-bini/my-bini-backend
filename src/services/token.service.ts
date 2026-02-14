@@ -173,6 +173,13 @@ export async function getChatCost(): Promise<number> {
   });
   return config ? parseFloat(config.value) : 1;
 }
+// ─── Calculate Message Cost ──────────────────────────
+export function calculateMessageCost(message: string): number {
+  if (!message) return 1;
+  const wordCount = message.trim().split(/\s+/).length;
+  // 1 Token per 5 words, minimum 1
+  return Math.max(1, Math.ceil(wordCount / 5));
+}
 
 // ─── Ensure Balance Exists ───────────────────────────
 

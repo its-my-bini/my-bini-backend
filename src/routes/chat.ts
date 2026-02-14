@@ -12,6 +12,7 @@ import {
   commitDeduction,
   rollbackTokens,
   getChatCost,
+  calculateMessageCost,
 } from "../services/token.service";
 import { updateIntimacy, trackUsage } from "../services/relationship.service";
 import { chatCompletion } from "../services/ai.service";
@@ -90,7 +91,8 @@ export const chatRoutes: Plugin<void> = {
               }
 
               // 3. Get chat cost
-              const chatCost = await getChatCost();
+              // 3. Get chat cost (Word-based)
+              const chatCost = calculateMessageCost(message);
 
               // 4. Reserve tokens
               const reserved = await reserveTokens(user.id, chatCost);
@@ -233,8 +235,8 @@ export const chatRoutes: Plugin<void> = {
           );
         }
 
-        // 3. Get chat cost
-        const chatCost = await getChatCost();
+        // 3. Get chat cost (Word-based)
+        const chatCost = calculateMessageCost(message);
 
         // 4. Reserve tokens
         const reserved = await reserveTokens(user.id, chatCost);
