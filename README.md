@@ -84,13 +84,12 @@ cp .env.example .env
 **Environment Variables:**
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/dating_app"
+DATABASE_URL="your_database_url"
 GLM_API_KEY="your-api-key"
 GLM_BASE_URL="https://ai.sumopod.com"
 GLM_MODEL="deepseek-v3-2-251201"
 REDIS_URL="redis://localhost:6379"
-ERC20_CONTRACT_ADDRESS="0x26f942e7c1D1F45c575649ed386C2fef68C06a8c"
-MONAD_RPC_URL="https://testnet-rpc.monad.xyz"
+MONAD_RPC_URL="https://rpc.monad.xyz"
 MONAD_TREASURY_ADDRESS="0x26f942e7c1D1F45c575649ed386C2fef68C06a8c"
 SERVER_PORT=8000
 ```
